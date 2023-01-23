@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="ja">
+
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/water.css@2/out/water.min.css">
+  <style>
+    textarea {
+      font-family: monospace;
+    }
+  </style>
+</head>
+
+<body>
+  <h1>string 👉 byte array</h1>
+  <label>
+    <input id="cast" type="checkbox" checked>
+    byteへのキャストを行う
+  </label>
+  <textarea id="src" placeholder="Hello!"></textarea>
+  👇
+  <textarea id="dst" readonly
+    placeholder="{(byte) 'H', (byte) 'e', (byte) 'l', (byte) 'l', (byte) 'o', (byte) '!'}"></textarea>
+  <button id="copy">コピー</button>
+
+  <script>
+    window.addEventListener("load", () => {
+      const cast = document.getElementById("cast");
+      const src = document.getElementById("src");
+      const dst = document.getElementById("dst");
+      const copy = document.getElementById("copy");
+
+      const convert = () => {
+        let prefix = '';
+        if (cast.checked) {
+          prefix = "(byte) ";
+        }
+        if (src.value === "") {
+          dst.value = "";
+        } else {
+          dst.value = "{" + [...src.value].map((char) => `${prefix}'${char === "\n" ? "\\n" : char}'`).join(", ") + "}";
+        }
+      };
+
+      cast.addEventListener("input", () => {
+        convert();
+        if (cast.checked) {
+          dst.placeholder = "{(byte) 'H', (byte) 'e', (byte) 'l', (byte) 'l', (byte) 'o', (byte) '!'}";
+        } else {
+          dst.placeholder = "{'H', 'e', 'l', 'l', 'o', '!'}";
+        }
+      });
+
+      src.addEventListener("input", () => convert());
+
+      copy.addEventListener("click", () => {
+        dst.select();
+        document.execCommand("copy");
+        src.focus();
+      });
+
+      src.focus();
+    });
+  </script>
+</body>
+
+</html>
