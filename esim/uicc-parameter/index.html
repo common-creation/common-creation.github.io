@@ -23,14 +23,16 @@
 <body>
   <div id="app"></div>
   <script type="text/babel">
+    const params = new URLSearchParams(location.search);
+
     const App = (props) => {
       const [priority, setPriority] = React.useState(255);
       const [timer, setTimer] = React.useState(5);
       const [channel, setChannel] = React.useState(5);
       const [menuCount, setMenuCount] = React.useState(1);
       const [entryLabelLength, setEntryLabelLength] = React.useState(32);
-      const [useUiccFs, setUseUiccFs] = React.useState(false);
-      const [adf1Aid, setAdf1Aid] = React.useState("");
+      const [useUiccFs, setUseUiccFs] = React.useState(params.get("useuiccfs") === "true" || false);
+      const [adf1Aid, setAdf1Aid] = React.useState(params.get("adf1aid") || "");
 
       const [generatedUssp, setGeneratedUssp] = React.useState("");
 
