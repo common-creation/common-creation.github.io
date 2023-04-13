@@ -1,0 +1,146 @@
+<!doctype html>
+<html lang="ja">
+
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/water.css@2/out/water.min.css">
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  <script crossorigin src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+  <style>
+    label.config {
+      display: flex;
+      align-items: baseline;
+    }
+    label.config > div:first-child {
+      padding-right: 0.5rem;
+    }
+  </style>
+</head>
+
+<body>
+  <div id="app"></div>
+  <script type="text/babel">
+    const App = (props) => {
+      const [priority, setPriority] = React.useState(255);
+      const [timer, setTimer] = React.useState(5);
+      const [channel, setChannel] = React.useState(5);
+      const [menuCount, setMenuCount] = React.useState(1);
+      const [entryLabelLength, setEntryLabelLength] = React.useState(32);
+      const [useUiccFs, setUseUiccFs] = React.useState(false);
+      const [adf1Aid, setAdf1Aid] = React.useState("");
+
+      const [generatedUssp, setGeneratedUssp] = React.useState("");
+
+      const toHex = (val) => val.toString(16).padStart(2, "0").toUpperCase();
+
+      const generateUssp = () => {
+        let ussp = "";
+
+        ussp += "80";
+
+        let utasp = "";
+        utasp += toHex(priority);
+        utasp += toHex(timer);
+        utasp += toHex(entryLabelLength);
+        utasp += toHex(menuCount);
+        for (let i = 0; i < menuCount; i++) {
+          utasp += toHex(i+1);
+          utasp += "00";
+        }
+        utasp += toHex(channel);
+        utasp += "00";
+        ussp += toHex(utasp.length / 2);
+        ussp += utasp;
+
+        if (useUiccFs) {
+          ussp += "81";
+
+          let uiccFs = "";
+          uiccFs += "00";
+          uiccFs += "01";
+          uiccFs += "00";
+          uiccFs += "00";
+          uiccFs += toHex(adf1Aid.length / 2);
+          uiccFs += adf1Aid;
+          uiccFs += "01";
+          uiccFs += "00";
+          uiccFs += "00";
+          ussp += toHex(uiccFs.length / 2);
+          ussp += uiccFs;
+        }
+
+        setGeneratedUssp(ussp);
+      }
+
+      React.useEffect(() => {
+        generateUssp();
+      }, [priority, timer, channel, menuCount, entryLabelLength, useUiccFs, adf1Aid]);
+
+      return (
+        <div>
+          <h1>UICC system specific parameters generator</h1>
+
+          <h2>設定</h2>
+          <div>
+            <label className="config">
+              <div>Toolkit アプリケーション インスタンスの優先度: </div>
+              <div>
+                <input type="number" value={priority} onChange={(e) => setPriority(parseInt(e.target.value, 10))} min={0} max={255} />
+              </div>
+            </label>
+            <label className="config">
+              <div>タイマーの数: </div>
+              <div>
+                <input type="number" value={timer} onChange={(e) => setTimer(parseInt(e.target.value, 10))} min={0} max={255} />
+              </div>
+            </label>
+            <label className="config">
+              <div>チャネルの数: </div>
+              <div>
+                <input type="number" value={channel} onChange={(e) => setChannel(parseInt(e.target.value, 10))} min={0} max={255} />
+              </div>
+            </label>
+            <label className="config">
+              <div>メニューに表示するエントリーの数: </div>
+              <div>
+                <input type="number" value={menuCount} onChange={(e) => setMenuCount(parseInt(e.target.value, 10))} min={0} max={255} />
+              </div>
+            </label>
+            <label className="config">
+              <div>メニュー エントリーの文字数: </div>
+              <div>
+                <input type="number" value={entryLabelLength} onChange={(e) => setEntryLabelLength(parseInt(e.target.value, 10))} min={0} max={255} />
+              </div>
+            </label>
+            <label className="config">
+              <div>
+                <input type="checkbox" checked={useUiccFs} onChange={(e) => setUseUiccFs(e.target.checked)} />
+              </div>
+              <div>UICC AIDファイルシステムを使用する</div>
+            </label>
+            {useUiccFs && (
+              <>
+                <label className="config">
+                  <div>ADF#1 AID (hex): </div>
+                  <div style={{ flex: 1 }}>
+                    <input style={{ width: "80%" }} value={adf1Aid} onChange={(e) => setAdf1Aid(e.target.value)} />
+                  </div>
+                </label>
+              </>
+            )}
+          </div>
+
+          <h2>UICC_SYSTEM_SPECIFIC_PARAMETERS</h2>
+          <code>{generatedUssp}</code>
+        </div>
+      );
+    };
+
+    ReactDOM.createRoot(document.querySelector("#app")).render(<App />);
+  </script>
+</body>
+
+</html>
