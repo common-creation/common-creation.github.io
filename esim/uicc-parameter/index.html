@@ -25,18 +25,95 @@
   <script type="text/babel">
     const params = new URLSearchParams(location.search);
 
+    const toHex = (val) => val.toString(16).padStart(2, "0").toUpperCase();
+    const strToHexStream = (str) => str.split("").map((c) => c.charCodeAt(0).toString(16)).join("").toUpperCase();
+    // expose to devtool
+    window.toHex = toHex;
+    window.strToHexStream = strToHexStream;
+
+    const copyToClipboard = (text) => {
+      const p = document.createElement("p");
+      p.style.opacity = "0";
+      p.style.position = "absolute";
+      p.style.top = "0";
+      p.style.left = "0";
+      document.body.appendChild(p);
+      p.innerHTML = text;
+
+      let result;
+      try {
+        const range = document.createRange();
+        range.selectNode(p);
+        window.getSelection().removeAllRanges();
+        window.getSelection().addRange(range);
+        result = document.execCommand("copy");
+        window.getSelection().removeAllRanges();
+      } finally {
+        document.body.removeChild(p);
+      }
+      return result;
+    }
+
     const App = (props) => {
       const [priority, setPriority] = React.useState(255);
       const [timer, setTimer] = React.useState(5);
       const [channel, setChannel] = React.useState(5);
-      const [menuCount, setMenuCount] = React.useState(1);
+      const [menuCount, setMenuCount] = React.useState(6);
       const [entryLabelLength, setEntryLabelLength] = React.useState(32);
-      const [useUiccFs, setUseUiccFs] = React.useState(params.get("useuiccfs") === "true" || false);
+      const [useUiccFs, setUseUiccFs] = React.useState((params.get("useuiccfs") == null) || (params.get("useuiccfs") === "true") || false);
       const [adf1Aid, setAdf1Aid] = React.useState(params.get("adf1aid") || "");
 
       const [generatedUssp, setGeneratedUssp] = React.useState("");
+      const [generatedUsspWithTag, setGeneratedUsspWithTag] = React.useState("");
 
-      const toHex = (val) => val.toString(16).padStart(2, "0").toUpperCase();
+      const [ramQuota, setRAMQuota] = React.useState(1);
+      const [nvramQuota, setNVRAMQuota] = React.useState(1);
+
+      const [generatedSspWithTag, setGeneratedSspWithTag] = React.useState("");
+
+      const [serverFQDN, setServerFQDN] = React.useState(params.get("serverfqdn") || "proxy.develop.sim-applet.com");
+      const [serverPort, setServerPort] = React.useState(80);
+      const [connectInterval, setConnectInterval] = React.useState("005132");
+      const [encrypt, setEncrypt] = React.useState("01");
+      const [strOemEncKey, setStrOemEncKey] = React.useState("PlsCngThisEncKey");
+      const [hexOemEncKey, setHexOemEncKey] = React.useState(strToHexStream(strOemEncKey));
+      const [oemEncKeyType, setOemEncKeyType] = React.useState("str");
+      const [useDigestAuth, setUseDigestAuth] = React.useState(false);
+      const [changeOemEncKey, setChangeOemEncKey] = React.useState(false);
+
+      const [generatedAsp, setGeneratedAsp] = React.useState("");
+      const [generatedAspWithTag, setGeneratedAspWithTag] = React.useState("");
+
+      const generateSsp = () => {
+        let ssp = "";
+        ssp += "C702" + ramQuota.toString(16).padStart(4,"0")
+        ssp += "C802" + nvramQuota.toString(16).padStart(4,"0")
+        ssp = "EF" + toHex(ssp.length/2) + ssp;
+        ssp = ssp.toUpperCase();
+
+        setGeneratedSspWithTag(ssp);
+      }
+
+      const generateAsp = () => {
+        let asp = "";
+        asp += "80"   + toHex(serverFQDN.length) + strToHexStream(serverFQDN)
+        asp += "8102" + serverPort.toString(16).padStart(4,"0")
+        if (changeOemEncKey) {
+          if (oemEncKeyType === "hex") {
+            asp += "82" + toHex(hexOemEncKey.length/2) + hexOemEncKey;
+          } else {
+            const tmpOemEncKey = strToHexStream(strOemEncKey);
+            asp += "82" + toHex(tmpOemEncKey.length/2) + tmpOemEncKey;
+          }
+        }
+        asp += "8303" + connectInterval;
+        asp += "8401" + encrypt;
+        asp = asp.toUpperCase();
+        setGeneratedAsp(asp);
+
+        asp = "C9" + toHex(asp.length/2) + asp
+        setGeneratedAspWithTag(asp);
+      }
 
       const generateUssp = () => {
         let ussp = "";
@@ -75,13 +152,32 @@
           ussp += toHex(uiccFs.length / 2); // Length of UICC Access Application specific parameters field
           ussp += uiccFs;
         }
+        ussp = ussp.toUpperCase();
 
         setGeneratedUssp(ussp);
+
+        let usspWithTag = "EA" + toHex(ussp.length/2) + ussp;
+        setGeneratedUsspWithTag(usspWithTag);
+
       }
 
       React.useEffect(() => {
         generateUssp();
-      }, [priority, timer, channel, menuCount, entryLabelLength, useUiccFs, adf1Aid]);
+        generateSsp();
+        generateAsp();
+      }, [priority, timer, channel, menuCount, entryLabelLength, useUiccFs, adf1Aid,
+          ramQuota, nvramQuota,
+          serverFQDN, serverPort, connectInterval, encrypt, hexOemEncKey, strOemEncKey, useDigestAuth, changeOemEncKey]);
+
+      React.useEffect(() => {
+        if (oemEncKeyType === "hex") {
+          setHexOemEncKey(strToHexStream(strOemEncKey));
+        } else {
+          setStrOemEncKey(hexOemEncKey.match(/.{1,2}/g)?.map((hex) => String.fromCharCode(parseInt(hex, 16))).join("") || "");
+        }
+      }, [oemEncKeyType]);
+
+      const gpParams = generatedAspWithTag + generatedSspWithTag + generatedUsspWithTag;
 
       return (
         <div>
@@ -137,8 +233,104 @@
             )}
           </div>
 
+          <h2>設定(System Specific Parameters)</h2>
+          <div>
+            <label className="config">
+              <div>Volatile Memory Quota(C7): </div>
+              <div>
+                <input type="number" value={ramQuota} onChange={(e) => setRAMQuota(parseInt(e.target.value, 10))} min={0} max={65535} />
+              </div>
+            </label>
+            <label className="config">
+              <div>Nonv-volatile Memory Quota(C8): </div>
+              <div>
+                <input type="number" value={nvramQuota} onChange={(e) => setNVRAMQuota(parseInt(e.target.value, 10))} min={0} max={65535} />
+              </div>
+            </label>
+          </div>
+
+          <h2>設定(Application Specific Parameters)</h2>
+          <div>
+            <label className="config">
+              <div>(tag80)server FQDN: </div>
+              <div style={{ flex: 1 }}>
+                <input style={{ width: "80%" }} value={serverFQDN} maxLength="127" onChange={(e) => setServerFQDN(e.target.value) } />
+              </div>
+            </label>
+            <label className="config">
+              <div>(tag81)Port: </div>
+              <div>
+                <input type="number" value={serverPort} onChange={(e) => setServerPort(parseInt(e.target.value, 10))} min={1} max={65535} />
+              </div>
+            </label>
+            <label className="config">
+              <div>
+                <input type="checkbox" checked={changeOemEncKey} onChange={(e) => setChangeOemEncKey(e.target.checked)} />
+              </div>
+              <div>(tag82)OEMEncKeyを指定する</div>
+            </label>
+            <div style={{ marginLeft: "2rem", marginBottom: "0.5rem" }}><i>※telemetryの暗号化 と ダイジェスト認証時のPW として使用します</i></div>
+            {changeOemEncKey && (
+              <label className="config" style={{ marginLeft: "2rem", marginBottom: "0.5rem" }}>
+                <div>OEMEncKey: </div>
+                {["str", "hex"].map(type => {
+                  return (
+                    <label style={{ marginRight: "0.5rem" }}>
+                      <input type="radio" value={type} checked={type === oemEncKeyType} onChange={(e) => setOemEncKeyType(e.target.value)}/>
+                      <span>{type}</span>
+                    </label>
+                  )
+                })}
+                <div style={{ flex: 1, display: "flex", alignItems: "baseline" }}>
+                  {oemEncKeyType === "hex" ? (
+                    <>
+                      <input style={{ width: "80%" }} value={hexOemEncKey} onChange={(e) => setHexOemEncKey(e.target.value) } />
+                      <span style={{ color: hexOemEncKey.length === 32 ? "inherit" : "red" }}> {hexOemEncKey.length}/32</span>
+                    </>
+                  ) : (
+                    <>
+                      <input style={{ width: "80%" }} value={strOemEncKey} onChange={(e) => setStrOemEncKey(e.target.value) } />
+                      <span style={{ color: strOemEncKey.length === 16 ? "inherit" : "red" }}> {strOemEncKey.length}/16</span>
+                    </>
+                  )}
+                </div>
+              </label>
+            )}
+            <label className="config">
+              <div>(tag83)接続間隔: </div>
+              <div>
+                <input type="text" value={connectInterval} onChange={(e) => setConnectInterval(e.target.value)} pattern="\d{6}" maxLength="6" />
+              </div><div>hHmMsS(例:15分23秒)</div>
+            </label>
+
+            <label className="config">
+              <div>
+                <input type="checkbox" checked={encrypt === "01"} onChange={(e) => setEncrypt(e.target.checked ? "01" : "00")} />
+              </div>
+              <div>(tag84)テレメトリデータを暗号化する</div>
+            </label>
+          </div>
+
           <h2>UICC_SYSTEM_SPECIFIC_PARAMETERS</h2>
           <code>{generatedUssp}</code>
+          <div style={{ display: "flex", justifyContent: "end", marginTop: "0.5rem" }}>
+            <button onClick={() => copyToClipboard(generatedUssp)}>クリップボードにコピー</button>
+          </div>
+
+          <h2>APP_SPECIFIC_PARAMETERS</h2>
+          <code>{generatedAsp}</code>
+          <div style={{ display: "flex", justifyContent: "end", marginTop: "0.5rem" }}>
+            <button onClick={() => copyToClipboard(generatedAsp)}>クリップボードにコピー</button>
+          </div>
+
+          <h2>--params for GlobalPlatformPro</h2>
+          <code>{gpParams}</code>
+          <div style={{ display: "flex", justifyContent: "end", marginTop: "0.5rem" }}>
+            <div>
+              <div style={{ display: "flex", justifyContent: "end", color: gpParams.length > 255 ? "red" : "inherit", marginBottom: "0.5rem" }}>{gpParams.length}/255</div>
+              <button onClick={() => copyToClipboard(gpParams)} disabled={gpParams.length > 255}>クリップボードにコピー</button>
+            </div>
+          </div>
         </div>
       );
     };
