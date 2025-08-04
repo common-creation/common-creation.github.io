@@ -10,10 +10,20 @@ const hexToAscii = (hex) => {
   }
   return ascii;
 };
+const numToHex = (num, byteLength) => {
+  const hexValue = parseInt(num).toString(16).toUpperCase();
+  const targetLength = byteLength * 2; // バイト数を文字数に変換
+  return hexValue.padStart(targetLength, "0");
+};
+const hexToNum = (hex) => {
+  return parseInt(hex, 16).toString();
+};
 // expose to devtool
 window.toHex = toHex;
 window.strToHexStream = strToHexStream;
 window.hexToAscii = hexToAscii;
+window.numToHex = numToHex;
+window.hexToNum = hexToNum;
 
 const copyToClipboard = (text) => {
   const p = document.createElement("p");
@@ -55,7 +65,7 @@ const App = (props) => {
 
   const [generatedSspWithTag, setGeneratedSspWithTag] = React.useState("");
 
-  const [aspTags, setAspTags] = React.useState([{ id: 1, tag: "", payload: "", payloadMode: "hex" }]);
+  const [aspTags, setAspTags] = React.useState([{ id: 1, tag: "", payload: "", payloadMode: "hex", numericLength: 2 }]);
   const [nextTagId, setNextTagId] = React.useState(2);
 
   const [generatedAsp, setGeneratedAsp] = React.useState("");
@@ -73,7 +83,7 @@ const App = (props) => {
       adf1Aid,
       ramQuota,
       nvramQuota,
-      aspTags: aspTags.map(({tag, payload, payloadMode}) => ({tag, payload, payloadMode}))
+      aspTags: aspTags.map(({tag, payload, payloadMode, numericLength}) => ({tag, payload, payloadMode, numericLength}))
     };
     
     const blob = new Blob([JSON.stringify(config, null, 2)], { type: 'application/json' });
@@ -112,9 +122,10 @@ const App = (props) => {
             id: index + 1,
             tag: tag.tag || "",
             payload: tag.payload || "",
-            payloadMode: tag.payloadMode || "hex"
+            payloadMode: tag.payloadMode || "hex",
+            numericLength: tag.numericLength || 2
           }));
-          setAspTags(newTags.length > 0 ? newTags : [{ id: 1, tag: "", payload: "", payloadMode: "hex" }]);
+          setAspTags(newTags.length > 0 ? newTags : [{ id: 1, tag: "", payload: "", payloadMode: "hex", numericLength: 2 }]);
           setNextTagId(newTags.length + 1);
         }
       } catch (error) {
@@ -141,12 +152,19 @@ const App = (props) => {
     let asp = "";
     
     // 各タグを処理
-    aspTags.forEach(({tag, payload, payloadMode}) => {
+    aspTags.forEach(({tag, payload, payloadMode, numericLength}) => {
       if (tag) {
         const tagHex = tag.toUpperCase();
         if (payload) {
-          // asciiモードの場合は変換
-          const payloadHex = payloadMode === 'ascii' ? strToHexStream(payload).toUpperCase() : payload.toUpperCase();
+          // モードに応じて変換
+          let payloadHex;
+          if (payloadMode === 'ascii') {
+            payloadHex = strToHexStream(payload).toUpperCase();
+          } else if (payloadMode === 'numeric') {
+            payloadHex = numToHex(payload, numericLength).toUpperCase();
+          } else {
+            payloadHex = payload.toUpperCase();
+          }
           const ll = toHex(payloadHex.length / 2);
           asp += tagHex + ll + payloadHex;
         } else {
@@ -165,7 +183,7 @@ const App = (props) => {
   }
   
   const addTag = () => {
-    setAspTags([...aspTags, { id: nextTagId, tag: "", payload: "", payloadMode: "hex" }]);
+    setAspTags([...aspTags, { id: nextTagId, tag: "", payload: "", payloadMode: "hex", numericLength: 2 }]);
     setNextTagId(nextTagId + 1);
   }
   
@@ -456,6 +474,12 @@ const App = (props) => {
                           setAspTags(aspTags.map(t => 
                             t.id === tagItem.id ? { ...t, payloadMode: 'hex', payload: hexPayload } : t
                           ));
+                        } else if (tagItem.payloadMode === 'numeric' && tagItem.payload) {
+                          // numericモードの場合、numToHexで変換
+                          const hexPayload = numToHex(tagItem.payload, tagItem.numericLength);
+                          setAspTags(aspTags.map(t => 
+                            t.id === tagItem.id ? { ...t, payloadMode: 'hex', payload: hexPayload } : t
+                          ));
                         } else {
                           updateTag(tagItem.id, 'payloadMode', 'hex');
                         }
@@ -482,6 +506,11 @@ const App = (props) => {
                             // 変換できない場合はモードだけ変更
                             updateTag(tagItem.id, 'payloadMode', 'ascii');
                           }
+                        } else if (tagItem.payloadMode === 'numeric') {
+                          // numeric→asciiは直接変換せず、ペイロードをクリア
+                          setAspTags(aspTags.map(t => 
+                            t.id === tagItem.id ? { ...t, payloadMode: 'ascii', payload: '' } : t
+                          ));
                         } else {
                           updateTag(tagItem.id, 'payloadMode', 'ascii');
                         }
@@ -489,6 +518,35 @@ const App = (props) => {
                       className: 'w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600'
                     }),
                     React.createElement('span', { className: 'ml-2 text-sm text-gray-900 dark:text-gray-300' }, 'ascii')
+                  ),
+                  React.createElement('label', { className: 'flex items-center' },
+                    React.createElement('input', {
+                      type: 'radio',
+                      name: `payloadMode-${tagItem.id}`,
+                      value: 'numeric',
+                      checked: tagItem.payloadMode === 'numeric',
+                      onChange: () => {
+                        // 現在hexモードの場合、numericに変換
+                        if (tagItem.payloadMode === 'hex' && tagItem.payload) {
+                          try {
+                            const num = hexToNum(tagItem.payload);
+                            setAspTags(aspTags.map(t => 
+                              t.id === tagItem.id ? { ...t, payloadMode: 'numeric', payload: num } : t
+                            ));
+                          } catch (e) {
+                            // 変換できない場合はモードだけ変更
+                            updateTag(tagItem.id, 'payloadMode', 'numeric');
+                          }
+                        } else {
+                          // ascii→numericは直接変換せず、ペイロードをクリア
+                          setAspTags(aspTags.map(t => 
+                            t.id === tagItem.id ? { ...t, payloadMode: 'numeric', payload: '' } : t
+                          ));
+                        }
+                      },
+                      className: 'w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600'
+                    }),
+                    React.createElement('span', { className: 'ml-2 text-sm text-gray-900 dark:text-gray-300' }, 'numeric')
                   )
                 )
               ),
@@ -502,12 +560,41 @@ const App = (props) => {
                     if (/^[0-9A-F]*$/.test(value)) {
                       updateTag(tagItem.id, 'payload', value);
                     }
+                  } else if (tagItem.payloadMode === 'numeric') {
+                    // numericモードは数字のみ、最大値チェック
+                    const value = e.target.value;
+                    if (/^[0-9]*$/.test(value)) {
+                      const numValue = parseInt(value || '0', 10);
+                      const maxValue = Math.pow(256, tagItem.numericLength) - 1;
+                      if (numValue <= maxValue) {
+                        updateTag(tagItem.id, 'payload', value);
+                      }
+                    }
                   } else {
                     // asciiモードは制限なし
                     updateTag(tagItem.id, 'payload', e.target.value);
                   }
                 },
-                placeholder: tagItem.payloadMode === 'hex' ? '例: 0123456789ABCDEF' : '例: Hello World'
+                placeholder: tagItem.payloadMode === 'hex' ? '例: 0123456789ABCDEF' : tagItem.payloadMode === 'ascii' ? '例: Hello World' : '例: 8000'
+              })
+            ),
+            tagItem.payloadMode === 'numeric' && React.createElement('div', { className: 'mt-2' },
+              React.createElement('label', { className: 'block mb-1 text-xs font-medium text-gray-900 dark:text-white' }, 
+                '長さ (バイト)'
+              ),
+              React.createElement('input', {
+                type: 'number',
+                className: 'bg-white border border-gray-300 text-gray-900 text-xs rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-20 p-1.5 dark:bg-gray-600 dark:border-gray-500 dark:placeholder-gray-400 dark:text-white',
+                value: tagItem.numericLength,
+                onChange: (e) => {
+                  const value = parseInt(e.target.value, 10);
+                  if (value > 0 && value <= 8) { // 最大8バイト
+                    updateTag(tagItem.id, 'numericLength', value);
+                  }
+                },
+                min: 1,
+                max: 8,
+                placeholder: '2'
               })
             )
           ),
@@ -515,7 +602,14 @@ const App = (props) => {
             React.createElement('span', { 
               className: 'bg-blue-100 text-blue-800 text-xs font-medium mr-2 px-2.5 py-0.5 rounded dark:bg-blue-900 dark:text-blue-300' 
             }, `LL (長さ): ${(() => {
-              const hexPayload = tagItem.payloadMode === 'ascii' ? strToHexStream(tagItem.payload) : tagItem.payload;
+              let hexPayload;
+              if (tagItem.payloadMode === 'ascii') {
+                hexPayload = strToHexStream(tagItem.payload);
+              } else if (tagItem.payloadMode === 'numeric') {
+                hexPayload = numToHex(tagItem.payload || '0', tagItem.numericLength);
+              } else {
+                hexPayload = tagItem.payload;
+              }
               return toHex(hexPayload.length / 2);
             })()}`)
           )
