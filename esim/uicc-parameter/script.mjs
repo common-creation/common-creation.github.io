@@ -1,10 +1,19 @@
 const params = new URLSearchParams(location.search);
 
 const toHex = (val) => val.toString(16).padStart(2, "0").toUpperCase();
-const strToHexStream = (str) => str.split("").map((c) => c.charCodeAt(0).toString(16)).join("").toUpperCase();
+const strToHexStream = (str) => str.split("").map((c) => c.charCodeAt(0).toString(16).padStart(2, "0")).join("").toUpperCase();
+const hexToAscii = (hex) => {
+  let ascii = "";
+  for (let i = 0; i < hex.length; i += 2) {
+    const byte = hex.substr(i, 2);
+    ascii += String.fromCharCode(parseInt(byte, 16));
+  }
+  return ascii;
+};
 // expose to devtool
 window.toHex = toHex;
 window.strToHexStream = strToHexStream;
+window.hexToAscii = hexToAscii;
 
 const copyToClipboard = (text) => {
   const p = document.createElement("p");
@@ -46,7 +55,7 @@ const App = (props) => {
 
   const [generatedSspWithTag, setGeneratedSspWithTag] = React.useState("");
 
-  const [aspTags, setAspTags] = React.useState([{ id: 1, tag: "", payload: "" }]);
+  const [aspTags, setAspTags] = React.useState([{ id: 1, tag: "", payload: "", payloadMode: "hex" }]);
   const [nextTagId, setNextTagId] = React.useState(2);
 
   const [generatedAsp, setGeneratedAsp] = React.useState("");
@@ -64,7 +73,7 @@ const App = (props) => {
       adf1Aid,
       ramQuota,
       nvramQuota,
-      aspTags: aspTags.map(({tag, payload}) => ({tag, payload}))
+      aspTags: aspTags.map(({tag, payload, payloadMode}) => ({tag, payload, payloadMode}))
     };
     
     const blob = new Blob([JSON.stringify(config, null, 2)], { type: 'application/json' });
@@ -102,9 +111,10 @@ const App = (props) => {
           const newTags = config.aspTags.map((tag, index) => ({
             id: index + 1,
             tag: tag.tag || "",
-            payload: tag.payload || ""
+            payload: tag.payload || "",
+            payloadMode: tag.payloadMode || "hex"
           }));
-          setAspTags(newTags.length > 0 ? newTags : [{ id: 1, tag: "", payload: "" }]);
+          setAspTags(newTags.length > 0 ? newTags : [{ id: 1, tag: "", payload: "", payloadMode: "hex" }]);
           setNextTagId(newTags.length + 1);
         }
       } catch (error) {
@@ -131,11 +141,12 @@ const App = (props) => {
     let asp = "";
     
     // 各タグを処理
-    aspTags.forEach(({tag, payload}) => {
+    aspTags.forEach(({tag, payload, payloadMode}) => {
       if (tag) {
         const tagHex = tag.toUpperCase();
         if (payload) {
-          const payloadHex = payload.toUpperCase();
+          // asciiモードの場合は変換
+          const payloadHex = payloadMode === 'ascii' ? strToHexStream(payload).toUpperCase() : payload.toUpperCase();
           const ll = toHex(payloadHex.length / 2);
           asp += tagHex + ll + payloadHex;
         } else {
@@ -154,7 +165,7 @@ const App = (props) => {
   }
   
   const addTag = () => {
-    setAspTags([...aspTags, { id: nextTagId, tag: "", payload: "" }]);
+    setAspTags([...aspTags, { id: nextTagId, tag: "", payload: "", payloadMode: "hex" }]);
     setNextTagId(nextTagId + 1);
   }
   
@@ -427,29 +438,86 @@ const App = (props) => {
               })
             ),
             React.createElement('div', null,
-              React.createElement('label', { className: 'block mb-2 text-sm font-medium text-gray-900 dark:text-white' }, 
-                'ペイロード (hex)'
+              React.createElement('div', { className: 'flex items-center justify-between mb-2' },
+                React.createElement('label', { className: 'text-sm font-medium text-gray-900 dark:text-white' }, 
+                  'ペイロード'
+                ),
+                React.createElement('div', { className: 'flex items-center space-x-4' },
+                  React.createElement('label', { className: 'flex items-center' },
+                    React.createElement('input', {
+                      type: 'radio',
+                      name: `payloadMode-${tagItem.id}`,
+                      value: 'hex',
+                      checked: tagItem.payloadMode === 'hex',
+                      onChange: () => {
+                        // 現在asciiモードの場合、hexに変換
+                        if (tagItem.payloadMode === 'ascii' && tagItem.payload) {
+                          const hexPayload = strToHexStream(tagItem.payload);
+                          setAspTags(aspTags.map(t => 
+                            t.id === tagItem.id ? { ...t, payloadMode: 'hex', payload: hexPayload } : t
+                          ));
+                        } else {
+                          updateTag(tagItem.id, 'payloadMode', 'hex');
+                        }
+                      },
+                      className: 'w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600'
+                    }),
+                    React.createElement('span', { className: 'ml-2 text-sm text-gray-900 dark:text-gray-300' }, 'hex')
+                  ),
+                  React.createElement('label', { className: 'flex items-center' },
+                    React.createElement('input', {
+                      type: 'radio',
+                      name: `payloadMode-${tagItem.id}`,
+                      value: 'ascii',
+                      checked: tagItem.payloadMode === 'ascii',
+                      onChange: () => {
+                        // 現在hexモードの場合、asciiに変換（有効なhex文字列の場合のみ）
+                        if (tagItem.payloadMode === 'hex' && tagItem.payload && tagItem.payload.length % 2 === 0) {
+                          try {
+                            const ascii = hexToAscii(tagItem.payload);
+                            setAspTags(aspTags.map(t => 
+                              t.id === tagItem.id ? { ...t, payloadMode: 'ascii', payload: ascii } : t
+                            ));
+                          } catch (e) {
+                            // 変換できない場合はモードだけ変更
+                            updateTag(tagItem.id, 'payloadMode', 'ascii');
+                          }
+                        } else {
+                          updateTag(tagItem.id, 'payloadMode', 'ascii');
+                        }
+                      },
+                      className: 'w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600'
+                    }),
+                    React.createElement('span', { className: 'ml-2 text-sm text-gray-900 dark:text-gray-300' }, 'ascii')
+                  )
+                )
               ),
               React.createElement('input', {
                 type: 'text',
                 className: 'bg-white border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-600 dark:border-gray-500 dark:placeholder-gray-400 dark:text-white',
                 value: tagItem.payload,
                 onChange: (e) => {
-                  const value = e.target.value.toUpperCase();
-                  if (/^[0-9A-F]*$/.test(value)) {
-                    updateTag(tagItem.id, 'payload', value);
+                  if (tagItem.payloadMode === 'hex') {
+                    const value = e.target.value.toUpperCase();
+                    if (/^[0-9A-F]*$/.test(value)) {
+                      updateTag(tagItem.id, 'payload', value);
+                    }
+                  } else {
+                    // asciiモードは制限なし
+                    updateTag(tagItem.id, 'payload', e.target.value);
                   }
                 },
-                placeholder: '例: 0123456789ABCDEF'
+                placeholder: tagItem.payloadMode === 'hex' ? '例: 0123456789ABCDEF' : '例: Hello World'
               })
             )
           ),
           tagItem.tag && tagItem.payload && React.createElement('div', { className: 'mt-2' },
             React.createElement('span', { 
-              className: tagItem.payload.length % 2 !== 0 
-                ? 'bg-red-100 text-red-800 text-xs font-medium mr-2 px-2.5 py-0.5 rounded dark:bg-red-900 dark:text-red-300'
-                : 'bg-blue-100 text-blue-800 text-xs font-medium mr-2 px-2.5 py-0.5 rounded dark:bg-blue-900 dark:text-blue-300' 
-            }, `LL (長さ): ${tagItem.payload.length % 2 === 0 ? toHex(tagItem.payload.length / 2) : (tagItem.payload.length / 2).toFixed(1)}`)
+              className: 'bg-blue-100 text-blue-800 text-xs font-medium mr-2 px-2.5 py-0.5 rounded dark:bg-blue-900 dark:text-blue-300' 
+            }, `LL (長さ): ${(() => {
+              const hexPayload = tagItem.payloadMode === 'ascii' ? strToHexStream(tagItem.payload) : tagItem.payload;
+              return toHex(hexPayload.length / 2);
+            })()}`)
           )
         )
       ),
