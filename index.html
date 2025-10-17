@@ -16,36 +16,71 @@
             display: flex;
             flex-direction: column;
         }
+        .header {
+            display: inline-flex;
+            align-items: center;
+            margin: 2rem 0;
+        }
+        .header .ura {
+            font-size: 2.5rem;
+            font-weight: bold;
+            color: var(--text-bright);
+        }
         .content {
             flex: 1;
+        }
+        .description {
+            margin-top: 0;
+            color: var(--text-muted);
+            font-size: 0.8rem;
         }
         .footer {
             text-align: center;
             padding-bottom: 20px;
         }
+        .footer .links {
+            display: flex;
+            justify-content: space-around;
+            margin-bottom: 0.5rem;
+        }
     </style>
 </head>
 <body>
     <div class="content">
-        <h1>Common Creationのチラシの裏</h1>
+        <div class="header">
+            <picture>
+                <source srcset="/assets/images/corporate-logo-dark.svg" media="(prefers-color-scheme: dark)" />
+                <img src="/assets/images/corporate-logo.svg" alt="COMMON CREATION corporate logo" />
+            </picture>
+            <div class="ura">のチラシの裏</div>
+        </div>
         <h2>裏紙一覧</h2>
+        <h3>SIM Applet関連</h3>
         <ul>
-            <li>SIM Appplet関連
-                <ul>
-                    <li><a href="sim-applet/string/">string 👉 byte array</a></li>
-                    <li><a href="sim-applet/uicc-parameter/">UICC system specific parameters generator</a></li>
-                </ul>
+            <li>
+                <a href="sim-applet/string/">string 👉 byte array</a>
+                <div class="description">stringを使用できないので、入力した文字列をbyte配列に分解します</div>
             </li>
-            <li>LLM関連
-                <ul>
-                    <li><a href="llm/ascii-drawer/">あすきーどろわー</a></li>
-                </ul>
+            <li>
+                <a href="sim-applet/uicc-parameter/">UICC system specific parameters generator</a>
+                <div class="description">GlobalPlatformProでインストールするときのパラメーターを生成します</div>
+            </li>
+        </ul>
+        <h3>LLM関連</h3>
+        <ul>
+            <li>
+                <a href="llm/ascii-drawer/">あすきーどろわー</a>
+                <div class="description">マルチモーダルではないLLMにUIイメージを伝えるためのアスキーアートを生成します</div>
             </li>
         </ul>
     </div>
     <div class="footer">
         <hr />
-        <div>©︎ Common Creation, Co., Ltd.</div>
+        <div class="links">
+            <a href="https://common-creation.com/">コーポレートサイト</a>
+            <a href="https://solution.common-creation.com/">ソリューション一覧</a>
+        </div>
+        <div>©︎ COMMON CREATION, Co., Ltd.</div>
     </div>
 </body>
 </html>
