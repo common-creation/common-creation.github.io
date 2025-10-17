@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>あすきーどろわー</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Google+Sans+Code:wght@300..800&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="app">
+        <div class="head-container">
+            <div class="header">
+                <h1>あすきーどろわー</h1>
+                <p><a href="/">ホームに戻る</a></p>
+            </div>
+            <div class="toolbar">
+                <div class="toolbar-title">ツール</div>
+                <div class="tool-buttons toolbar-section">
+                    <button class="tool-btn active" data-tool="select" title="選択">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                            <path d="M3 3l7.07 16.97 2.51-7.39 7.39-2.51L3 3z"/>
+                        </svg>
+                    </button>
+                    <button class="tool-btn" data-tool="rectangle" title="矩形">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
+                        </svg>
+                    </button>
+                    <button class="tool-btn" data-tool="line" title="直線">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <line x1="5" y1="19" x2="19" y2="5"/>
+                        </svg>
+                    </button>
+                    <button class="tool-btn" data-tool="text" title="テキスト">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                            <path d="M5 3h14v2H5V3zm0 6h14v2H5V9zm0 6h10v2H5v-2z"/>
+                        </svg>
+                    </button>
+                </div>
+                <div class="toolbar-section">
+                    <div class="toolbar-title">編集</div>
+                    <div class="edit-buttons">
+                        <button class="edit-btn" id="copy-btn" title="コピー (Ctrl+C)">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                                <path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/>
+                            </svg>
+                        </button>
+                        <button class="edit-btn" id="paste-btn" title="貼り付け (Ctrl+V)">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                                <path d="M19 2h-4.18C14.4.84 13.3 0 12 0c-1.3 0-2.4.84-2.82 2H5c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm-7 0c.55 0 1 .45 1 1s-.45 1-1 1-1-.45-1-1 .45-1 1-1zm7 18H5V4h2v3h10V4h2v16z"/>
+                            </svg>
+                        </button>
+                        <button class="edit-btn" id="delete-btn" title="削除 (Delete)">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                                <path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/>
+                            </svg>
+                        </button>
+                    </div>
+                </div>
+                <div class="toolbar-section">
+                    <div class="toolbar-title">データ</div>
+                    <div class="edit-buttons">
+                        <button class="edit-btn" id="export-btn" title="ファイルにエクスポート">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                                <path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/>
+                            </svg>
+                        </button>
+                        <button class="edit-btn" id="import-btn" title="ファイルからインポート">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                                <path d="M9 16h6v-6h4l-7-7-7 7h4zm-4 2h14v2H5z"/>
+                            </svg>
+                        </button>
+                        <button class="edit-btn" id="copy-all-btn" title="全体をクリップボードにコピー">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                                <path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/>
+                            </svg>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="canvas-container">
+            <div class="canvas" id="canvas">
+                <div class="ascii-content" id="ascii-content"></div>
+            </div>
+            <div class="coordinates">
+                <span id="coords">X: 0, Y: 0</span>
+            </div>
+        </div>
+
+        <div class="copyright">
+            ©︎ Common Creation, Co., Ltd.
+        </div>
+
+        <div class="preload-ascii">
+            ┌─┐
+            └─┘
+        </div>
+
+        <!-- ローディングスピナー -->
+        <div class="loading-spinner" id="loading-spinner">
+            <div class="spinner"></div>
+            <div class="loading-text">読み込み中...</div>
+        </div>
+    </div>
+
+    <script type="module" src="script.mjs"></script>
+</body>
+</html>
